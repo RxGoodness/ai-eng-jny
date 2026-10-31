@@ -44,4 +44,4 @@ except anthropic.NotFoundError:
 except anthropic.APIStatusError as e:
     print(f"API error {e.status_code}: {e.message}")
 
-print(response.content[0].text)
+# print(response.content[0].text)
