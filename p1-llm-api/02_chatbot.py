@@ -19,9 +19,10 @@ while True:
 
     except anthropic.APIConnectionError:
         print("Can't reach the model server. Is Ollama running?")
+        history.pop()
     except anthropic.NotFoundError:
         print(f"Model '{MODEL}' not found. Check the name / run `ollama list`.")
+        history.pop()
     except anthropic.APIStatusError as e:
         print(f"API error {e.status_code}: {e.message}")
-
-    print(f"  (tokens in: {response.usage.input_tokens}, history: {len(history)} msgs)")
+        history.pop()

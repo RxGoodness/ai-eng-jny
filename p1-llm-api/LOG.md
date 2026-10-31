@@ -58,3 +58,72 @@
 
 ### One thing I'm curious about
 - What do real chat apps do when the history gets too long for the model's context window, or too expensive to keep re-sending?
+
+
+
+
+## 2026-10-31 — Anthropic API Fundamentals, Lesson 3: Models
+
+### What I built
+- `03_compare.py`: a speed benchmark. A `run()` helper times one call with `time.perf_counter()` and returns text, seconds and output tokens, then a table prints tokens, seconds and tokens/second per model.
+- `03_compare_practice.py`: an accuracy eval. It asks the fecal coliform maths question 5 times per model and scores exact matches against the correct answer (`18`).
+- Ran `03_models.ipynb` against Ollama instead of the retired Claude 3 models.
+
+### Results so far (only `gemma3:1b`; `gemma3:4b` not pulled yet)
+Speed, photosynthesis task, model already loaded:
+
+| model | tokens | seconds | tok/s |
+|-------|--------|---------|-------|
+| gemma3:1b | 85 | 1.68 | 50.7 |
+| gemma3:1b | 72 | 1.46 | 49.3 |
+
+Cold start, the same short request twice (from `03_compare.py`):
+
+| run | seconds |
+|-----|---------|
+| 1st (model loading into memory) | 1.75 |
+| 2nd (model already loaded) | 0.08 |
+
+About **22× slower** on the first call.
+
+Accuracy, maths task (correct answer `18`, because the geometric mean is 17.50):
+
+| model | score | answers |
+|-------|-------|---------|
+| gemma3:1b | 0/5 | `['23', '23', '23', '23', '23']` |
+
+### Key insights
+- **Choosing a model is a trade-off between capability, speed and cost, and the only way to choose is to measure it on my own task.** Benchmarks and marketing don't tell me how a model does on *my* prompt.
+- **Consistent ≠ correct.** `gemma3:1b` answered `23` every time, so it was confident, repeatable and wrong. Only an eval with a known correct answer catches this.
+- **Cold start.** The first request after a model loads is much slower (1.75 s vs 0.08 s). Warm up before timing, or I'm measuring loading instead of the model.
+- **Price gap.** Current Claude lineup ($ per 1M tokens, input / output): Haiku 5.5 $0.10 / $0.50, Sonnet 5.5 $2 / $10, Opus 5.5 $4 / $20. Opus costs 40× as much per token as Haiku. The notebook's Claude 3 models are all retired.
+- An **eval** is a fixed task + a known correct answer + a score. `03_compare_practice.py` is my first one.
+
+### Errors I hit and what they meant
+No crashes this time, but there were **silent bugs**: the code ran and printed plausible numbers, but measured the wrong thing.
+
+| # | Problem | What it meant | Fix |
+|---|---------|---------------|-----|
+| 1 | `MODELS = ["gemma3:1b", "gemma3:1b"]` | **Code layer:** the same model listed twice, so nothing was actually compared. The second row only looked faster because the model was already loaded. | `ollama pull gemma3:4b` and use `["gemma3:1b", "gemma3:4b"]` |
+| 2 | The speed table timed `MATH_TASK` with `max_tokens=50` | **Code layer:** the answer is about 4 tokens, so tokens/second mostly measured request overhead, not generation speed. | Time `SPEED_TASK` (a long answer) with `max_tokens=500` |
+| 3 | Warm-up call commented out and placed *after* the timed call | **Code layer:** a warm-up only helps if it runs *before* the timer. | Move `run(model, "hi", max_tokens=5)` above the timed `run(...)` |
+
+### Differences I noticed (tutorial vs what actually happened)
+| Topic | What the tutorial says | What actually happened |
+|-------|------------------------|------------------------|
+| Models | Claude 3 / 3.5 IDs | All retired. I compared Gemma sizes locally instead (1b ≈ Haiku, 4b ≈ Sonnet, 12b ≈ Opus). |
+| Maths question | Haiku 3 got 2/7, Sonnet 3.5 got 7/7 | `gemma3:1b` got 0/5, always `23` |
+| Speed demo | One call per model | Without a warm-up, the first model looks unfairly slow (cold start) |
+
+### Lessons
+- Start with the smallest, cheapest model, test it on the real task with an eval, and move up only if it fails.
+- **Sanity-check benchmark output.** Numbers that look plausible can still be wrong. Ask "what exactly did this measure?" (the same model twice, the wrong task, warm-up in the wrong place).
+- Warm up before timing anything.
+
+### Model decision
+- **Staying with `gemma3:1b`.** `gemma3:4b` (3.3 GB) is more than I want to install, so I didn't run a side-by-side comparison. I understand the method: the same tasks, a warm-up, then compare tok/s and eval scores.
+- Trade-off I'm accepting: it's fast (about 50 tok/s) and free, but weak at maths (0/5) and few-shot. For tasks that need accuracy I'll switch `USE_LOCAL = False` and use Claude once I have API credits.
+- Fixed the three silent bugs above. `MODELS` now lists only `gemma3:1b`, and `03_compare.py` times `SPEED_TASK` after a warm-up.
+
+### One thing I'm curious about
+- How do teams run evals at scale? Hundreds of test cases, scored automatically, rerun every time a prompt or model changes?

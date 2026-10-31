@@ -13,24 +13,12 @@ else:
     client = Anthropic()  # uses ANTHROPIC_API_KEY loaded from .env
     MODEL = "claude-haiku-5-5"
 
-# response = client.messages.create(
-#     model=MODEL,
-#     max_tokens=500,
-#     messages=[
-#         {"role": "user", "content": "Tell me a short programming joke."}
-#     ],
-# )
-
 try:
     response = client.messages.create(
         model=MODEL,
         max_tokens=500,
         messages=[
-            {"role": "user", 
-             "content": input("Ask: ")
-            #  "Tell me a short programming joke."
-            #  "content": "Tell me a short programming joke."
-             }
+            {"role": "user", "content": input("Ask: ")}
         ],
     )
     print(response.content[0].text)
@@ -43,5 +31,3 @@ except anthropic.NotFoundError:
     print(f"Model '{MODEL}' not found. Check the name / run `ollama list`.")
 except anthropic.APIStatusError as e:
     print(f"API error {e.status_code}: {e.message}")
-
-# print(response.content[0].text)
